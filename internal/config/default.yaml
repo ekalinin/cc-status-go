@@ -1,0 +1,20 @@
+# Built-in default configuration for cc-status.
+# Override by placing your own file at ~/.config/cc-status/config.yaml
+# or pointing CC_STATUS_CONFIG / --config at it.
+#
+# Each segment's `type` provides smart defaults for template/when/style;
+# set template, when, or style here to override them.
+
+separator: " | "
+no_color: false
+
+segments:
+  - type: model
+  - type: cwd
+  - type: git
+  - type: context
+  - type: cost
+  - type: rate_limit_full
+  - type: vim
+  - type: agent
+  - type: pr

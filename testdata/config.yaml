@@ -1,0 +1,22 @@
+# Example user config exercising overrides and the "text" segment.
+separator: " │ "
+no_color: false
+
+segments:
+  - type: model
+    style: "bold cyan"
+  - type: cwd
+    style: blue
+    # default template shows just the folder name; override with shortpath for a
+    # truncated path, e.g. template: "{{ shortpath .Workspace.CurrentDir 3 }}"
+  - type: git
+  - type: context
+  - type: cost
+    when: "{{ if .Cost }}{{ gt .Cost.TotalCostUSD 0.0 }}{{ end }}"
+  - type: rate_limit
+  - type: vim
+  - type: agent
+  - type: pr
+  - type: text
+    style: dim
+    template: "v{{ .Version }}"
