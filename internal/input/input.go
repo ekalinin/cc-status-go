@@ -23,6 +23,7 @@ type Input struct {
 	Cost           *Cost          `json:"cost"`
 	ContextWindow  *ContextWindow `json:"context_window"`
 	Exceeds200K    bool           `json:"exceeds_200k_tokens"`
+	FastMode       bool           `json:"fast_mode"`
 	Effort         *Effort        `json:"effort"`
 	Thinking       *Thinking      `json:"thinking"`
 	RateLimits     *RateLimits    `json:"rate_limits"`

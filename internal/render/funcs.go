@@ -21,6 +21,8 @@ var funcMap = template.FuncMap{
 	"trunc":       trunc,
 	"upper":       strings.ToUpper,
 	"lower":       strings.ToLower,
+	"add":         add,
+	"pct":         pct,
 }
 
 // shortpath collapses $HOME to "~" and keeps only the last n path components,
@@ -132,6 +134,26 @@ func defaultVal(fallback string, val any) string {
 		return fallback
 	}
 	return s
+}
+
+// add sums its arguments. With no arguments it returns 0. It is handy for
+// building a denominator inline, since text/template has no arithmetic
+// built-ins, e.g. pct .CacheRead (add .Input .CacheCreation .CacheRead).
+func add(nums ...int) int {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+
+// pct returns part/whole as a rounded integer percentage. A non-positive whole
+// yields 0 rather than dividing by zero.
+func pct(part, whole int) int {
+	if whole <= 0 {
+		return 0
+	}
+	return int(float64(part)/float64(whole)*100 + 0.5)
 }
 
 // trunc shortens s to at most n runes, appending "…" when cut.

@@ -80,6 +80,32 @@ func TestBasename(t *testing.T) {
 	}
 }
 
+func TestAdd(t *testing.T) {
+	if got := add(); got != 0 {
+		t.Errorf("add() = %d, want 0", got)
+	}
+	if got := add(8500, 5000, 2000); got != 15500 {
+		t.Errorf("add(8500, 5000, 2000) = %d, want 15500", got)
+	}
+}
+
+func TestPct(t *testing.T) {
+	cases := []struct {
+		part, whole, want int
+	}{
+		{2000, 15500, 13}, // rounds 12.9 up
+		{1, 3, 33},        // rounds 33.3 down
+		{2, 3, 67},        // rounds 66.6 up
+		{5, 0, 0},         // divide-by-zero guard
+		{0, 100, 0},
+	}
+	for _, tt := range cases {
+		if got := pct(tt.part, tt.whole); got != tt.want {
+			t.Errorf("pct(%d, %d) = %d, want %d", tt.part, tt.whole, got, tt.want)
+		}
+	}
+}
+
 func TestTrunc(t *testing.T) {
 	if got := trunc(3, "hello"); got != "hel…" {
 		t.Errorf("trunc = %q, want %q", got, "hel…")

@@ -67,12 +67,42 @@ segments:
 
 ### Segment types
 
-`model`, `cwd`, `git`, `cost`, `duration`, `context`, `tokens`, `rate_limit`,
-`rate_limit_full`, `output_style`, `effort`, `thinking`, `vim`, `agent`, `pr`,
-`worktree`, `session`, `version`, and `text` (no defaults — bring your own template).
+Every type ships smart defaults for its `template`, `when`, and `style`. A segment drops
+out automatically when its data is absent, so you can list all of them and only the
+relevant ones show. The default output and example for each type:
 
-`rate_limit` shows usage percentages; `rate_limit_full` additionally shows when each
-window resets, e.g. `5h 24% (resets 2h13m) / 7d 41% (resets 3d4h)`.
+| type | outputs | example |
+|------|---------|---------|
+| `model` | active model display name | `Opus` |
+| `cwd` | current directory name (folder only) | `cc-status-go` |
+| `project` | launch directory name, only when it differs from `cwd` | `my-app` |
+| `repo` | `owner/name` from the git `origin` remote | `anthropics/claude-code` |
+| `git` | worktree branch, else Claude worktree branch, else repo name | `feature-xyz` |
+| `cost` | session cost with lines added/removed | `💰 $0.01 (+156/-23)` |
+| `lines` | lines added/removed on their own (the diff from `cost`) | `+156/-23` |
+| `duration` | session wall-clock time | `1m30s` |
+| `context` | context window used, in percent | `8% ctx` |
+| `tokens` | input / output tokens, human-readable | `15.5k in / 2.1k out` |
+| `cache` | cache-read tokens and hit ratio from the last response | `2.0k cached (13%)` |
+| `rate_limit` | 5h and 7d usage percentages | `5h: 24% / 7d: 41%` |
+| `rate_limit_full` | usage percentages plus each window's reset time | `5h: 24% (in 2h13m) / 7d: 41% (in 3d4h)` |
+| `output_style` | active output style name (hidden when `default`) | `explanatory` |
+| `effort` | reasoning effort level | `effort:high` |
+| `thinking` | literal `thinking` when extended thinking is on | `thinking` |
+| `vim` | current vim mode | `NORMAL` |
+| `agent` | active subagent name | `🤖 security-reviewer` |
+| `pr` | pull request number and review state | `PR #1234 pending` |
+| `worktree` | Claude Code worktree name | `fix-login` |
+| `session` | session name | `my-session` |
+| `version` | Claude Code version | `v1.2.3` |
+| `fast_mode` | badge shown when fast mode is on | `⚡ fast` |
+| `exceeds_200k` | badge shown when the last response exceeds 200k tokens | `⚠ 200k+` |
+| `text` | nothing by default - supply your own `template` | (yours) |
+
+Each type's visibility guard is built in: e.g. `cost` shows only when spend is above `$0`,
+`output_style` hides the `default` style, and `git`/`vim`/`agent`/`pr` appear only when
+their data is present. Override any type's `template`, `when`, or `style` in your config;
+`--print-config` dumps the full set of defaults.
 
 ### Templates
 
@@ -102,6 +132,8 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/�
 | `duration ms` | `{{ duration .Cost.TotalDurationMS }}` | `45s`, `1m30s` |
 | `reltime unixSec` | `{{ reltime .RateLimits.FiveHour.ResetsAt }}` | `13m`, `2h13m`, `3d4h`, `now` |
 | `humantokens n` | `{{ humantokens .ContextWindow.TotalInputTokens }}` | `15.5k` |
+| `add nums…` | `{{ add .Foo .Bar .Baz }}` | integer sum (build a denominator inline) |
+| `pct part whole` | `{{ pct .Read (add .In .Create .Read) }}` | rounded percentage, `0` when `whole ≤ 0` |
 | `trunc n s` | `{{ trunc 20 .SessionName }}` | truncates with `…` |
 | `default fb v` | `{{ default "?" .Agent.Name }}` | fallback if empty |
 | `upper` / `lower` | `{{ upper .Vim.Mode }}` | case folding |

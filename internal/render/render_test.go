@@ -150,6 +150,36 @@ func TestRateLimitFullPartial(t *testing.T) {
 	}
 }
 
+// TestNewSegments covers the segment types added on top of the original set:
+// the fast_mode/exceeds_200k badges, repo/project/lines, and the cache segment
+// with its volume-and-hit-ratio template.
+func TestNewSegments(t *testing.T) {
+	cfg, err := config.Load(writeTempConfig(t, "separator: \" | \"\nsegments:\n"+
+		"  - type: fast_mode\n  - type: exceeds_200k\n  - type: repo\n"+
+		"  - type: project\n  - type: lines\n  - type: cache\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]string{
+		// Everything present and truthy.
+		`{"fast_mode":true,"exceeds_200k_tokens":true,` +
+			`"workspace":{"current_dir":"/a/app","project_dir":"/a/proj","repo":{"owner":"anthropics","name":"claude-code"}},` +
+			`"cost":{"total_lines_added":156,"total_lines_removed":23},` +
+			`"context_window":{"current_usage":{"input_tokens":8500,"cache_creation_input_tokens":5000,"cache_read_input_tokens":2000}}}`: "⚡ fast | ⚠ 200k+ | anthropics/claude-code | proj | +156/-23 | 2.0k cached (13%)",
+		// Badges off; project_dir == current_dir hides project; no repo/usage.
+		`{"fast_mode":false,"exceeds_200k_tokens":false,` +
+			`"workspace":{"current_dir":"/a/app","project_dir":"/a/app"},` +
+			`"cost":{"total_lines_added":0,"total_lines_removed":0}}`: "+0/-0",
+	}
+	for payload, want := range cases {
+		in, _ := input.Parse([]byte(payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != want {
+			t.Errorf("payload %s =>\n got: %q\nwant: %q", payload, got, want)
+		}
+	}
+}
+
 func writeTempConfig(t *testing.T, body string) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "config.yaml")
