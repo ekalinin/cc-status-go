@@ -34,6 +34,18 @@ var defaults = map[string]Segment{
 		When:     "{{ .Workspace.CurrentDir }}",
 		Style:    "blue",
 	},
+	"project": {
+		// The launch directory's name, shown only when the cwd has moved away
+		// from it during the session.
+		Template: "{{ basename .Workspace.ProjectDir }}",
+		When:     "{{ .Workspace.ProjectDir }} && {{ ne .Workspace.ProjectDir .Workspace.CurrentDir }}",
+		Style:    "blue",
+	},
+	"repo": {
+		Template: "{{ with .Workspace.Repo }}{{ .Owner }}/{{ .Name }}{{ end }}",
+		When:     "{{ .Workspace.Repo }}",
+		Style:    "purple",
+	},
 	"git": {
 		// Prefer an explicit worktree branch, then a Claude worktree branch,
 		// then the repo name.
@@ -51,6 +63,12 @@ var defaults = map[string]Segment{
 		When:     "{{ .Cost }} && {{ gt .Cost.TotalDurationMS 0 }}",
 		Style:    "dim",
 	},
+	"lines": {
+		// The edit volume from "cost" on its own, without the dollar amount.
+		Template: "+{{ .Cost.TotalLinesAdded }}/-{{ .Cost.TotalLinesRemoved }}",
+		When:     "{{ .Cost }}",
+		Style:    "green",
+	},
 	"context": {
 		Template: "{{ printf \"%.0f\" .ContextWindow.UsedPercentage }}% ctx",
 		When:     "{{ .ContextWindow }}",
@@ -59,6 +77,14 @@ var defaults = map[string]Segment{
 	"tokens": {
 		Template: "{{ humantokens .ContextWindow.TotalInputTokens }} in / {{ humantokens .ContextWindow.TotalOutputTokens }} out",
 		When:     "{{ .ContextWindow }}",
+		Style:    "dim",
+	},
+	"cache": {
+		// Cache-read volume and hit ratio from the last API response. The hit
+		// ratio is cache reads over all input tokens (fresh + cache write +
+		// cache read), matching how used_percentage counts input.
+		Template: "{{ with .ContextWindow.CurrentUsage }}{{ humantokens .CacheReadInputTokens }} cached ({{ pct .CacheReadInputTokens (add .InputTokens .CacheCreationInputTokens .CacheReadInputTokens) }}%){{ end }}",
+		When:     "{{ .ContextWindow }} && {{ .ContextWindow.CurrentUsage }}",
 		Style:    "dim",
 	},
 	"rate_limit": {
@@ -119,6 +145,16 @@ var defaults = map[string]Segment{
 		Template: "v{{ .Version }}",
 		When:     "{{ .Version }}",
 		Style:    "dim",
+	},
+	"fast_mode": {
+		Template: "⚡ fast",
+		When:     "{{ .FastMode }}",
+		Style:    "bold yellow",
+	},
+	"exceeds_200k": {
+		Template: "⚠ 200k+",
+		When:     "{{ .Exceeds200K }}",
+		Style:    "bold red",
 	},
 	"text": {
 		// No default template: the user supplies one.
