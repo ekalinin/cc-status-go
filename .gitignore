@@ -1,2 +1,4 @@
-bin/cc-status
+bin/
 TODO.md
+.spec.md
+.spec.perf.md
