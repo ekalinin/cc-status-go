@@ -139,6 +139,11 @@ Each type's visibility guard is built in: e.g. `cost` shows only when spend is a
 data is present. Override any type's `template`, `when`, or `style` in your config;
 `--print-config` dumps the full set of defaults.
 
+Where the same data has a compact and a detailed rendering, the plain name is the compact
+one and the detailed one is `<type>_full` - `rate_limit` / `rate_limit_full`, `effort` /
+`effort_full`. A status line is only a few columns wide, so the shorter form is the
+default and you opt into the longer one.
+
 #### The `git` segment
 
 The leading symbol tells you *where* you are, which the branch name alone does not:

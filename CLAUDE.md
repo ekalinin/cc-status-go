@@ -79,3 +79,8 @@ optional (pointer) section.
   segment", not error.
 - Adding a segment type = one entry in the `defaults` map in `config/defaults.go` (plus a
   helper in `render/funcs.go` if the template needs one). No registration elsewhere.
+- **Short type by default, `_full` for the verbose variant.** When one kind of data has a
+  compact and a detailed rendering, the bare name is the compact one and the detailed one
+  is `<type>_full`: `rate_limit` / `rate_limit_full`, `effort` / `effort_full`. A status
+  line is a few columns wide, so the name a user reaches for first should cost the fewest
+  of them.
