@@ -47,11 +47,21 @@ var defaults = map[string]Segment{
 		Style:    "purple",
 	},
 	"git": {
-		// Prefer an explicit worktree branch, then a Claude worktree branch,
-		// then the repo name.
-		Template: "{{ with .Workspace.GitWorktree }}{{ . }}{{ else }}{{ with .Worktree }}{{ .Branch }}{{ else }}{{ with .Workspace.Repo }}{{ .Name }}{{ end }}{{ end }}{{ end }}",
-		When:     "{{ .Workspace.GitWorktree }} || {{ .Worktree }} || {{ .Workspace.Repo }}",
-		Style:    "purple",
+		// Where we are, with the leading symbol saying what kind of place:
+		// 🌳 for a worktree (its name from workspace.git_worktree, or the
+		// branch of a --worktree session), 🌿 for a branch in the main working
+		// tree. Neither field is present in an ordinary session, so the last
+		// case reads the branch from .git/HEAD.
+		//
+		// No "when": the template yields "" outside a git repository (and for a
+		// detached HEAD), which drops the segment on its own. Guarding on
+		// .Workspace.Repo instead would hide the branch in repositories with no
+		// "origin" remote, where that field is absent.
+		Template: "{{ $wt := .Workspace.GitWorktree }}" +
+			"{{ with .Worktree }}{{ $wt = or $wt .Branch }}{{ end }}" +
+			"{{ if $wt }}🌳 {{ $wt }}" +
+			"{{ else }}{{ with branch .Workspace.CurrentDir }}🌿 {{ . }}{{ end }}{{ end }}",
+		Style: "purple",
 	},
 	"cost": {
 		Template: "💰 ${{ printf \"%.2f\" .Cost.TotalCostUSD }} (+{{ .Cost.TotalLinesAdded }}/-{{ .Cost.TotalLinesRemoved }})",

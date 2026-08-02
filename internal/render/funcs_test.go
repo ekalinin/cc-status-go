@@ -1,6 +1,8 @@
 package render
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -112,5 +114,79 @@ func TestTrunc(t *testing.T) {
 	}
 	if got := trunc(10, "hi"); got != "hi" {
 		t.Errorf("trunc no-cut = %q, want %q", got, "hi")
+	}
+}
+
+// writeFile creates path with the given contents, making parent directories.
+func writeFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBranch(t *testing.T) {
+	// Main working tree: .git is a directory holding HEAD.
+	repo := t.TempDir()
+	writeFile(t, filepath.Join(repo, ".git", "HEAD"), "ref: refs/heads/chore/ci\n")
+	if got := branch(repo); got != "chore/ci" {
+		t.Errorf("branch(main tree) = %q, want %q", got, "chore/ci")
+	}
+
+	// A nested directory finds the repository by walking up.
+	nested := filepath.Join(repo, "internal", "render")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := branch(nested); got != "chore/ci" {
+		t.Errorf("branch(nested) = %q, want %q", got, "chore/ci")
+	}
+
+	// Detached HEAD has no branch.
+	writeFile(t, filepath.Join(repo, ".git", "HEAD"), "9fceb02b0b4e1e2c0e5b2a1d3f4a5b6c7d8e9f00\n")
+	if got := branch(repo); got != "" {
+		t.Errorf("branch(detached) = %q, want %q", got, "")
+	}
+
+	// Outside a repository, and on empty input.
+	if got := branch(t.TempDir()); got != "" {
+		t.Errorf("branch(no repo) = %q, want %q", got, "")
+	}
+	if got := branch(""); got != "" {
+		t.Errorf("branch(empty) = %q, want %q", got, "")
+	}
+}
+
+// TestBranchLinkedWorktree covers a ".git" file pointing at the worktree's own
+// git directory, which holds a HEAD distinct from the main working tree's.
+func TestBranchLinkedWorktree(t *testing.T) {
+	root := t.TempDir()
+	main := filepath.Join(root, "repo")
+	writeFile(t, filepath.Join(main, ".git", "HEAD"), "ref: refs/heads/main\n")
+	wtGitDir := filepath.Join(main, ".git", "worktrees", "feature")
+	writeFile(t, filepath.Join(wtGitDir, "HEAD"), "ref: refs/heads/feature-xyz\n")
+
+	// Absolute gitdir target.
+	abs := filepath.Join(root, "wt-abs")
+	writeFile(t, filepath.Join(abs, ".git"), "gitdir: "+wtGitDir+"\n")
+	if got := branch(abs); got != "feature-xyz" {
+		t.Errorf("branch(abs gitdir) = %q, want %q", got, "feature-xyz")
+	}
+
+	// Relative gitdir target, resolved against the working tree holding it.
+	rel := filepath.Join(root, "wt-rel")
+	writeFile(t, filepath.Join(rel, ".git"), "gitdir: ../repo/.git/worktrees/feature\n")
+	if got := branch(rel); got != "feature-xyz" {
+		t.Errorf("branch(rel gitdir) = %q, want %q", got, "feature-xyz")
+	}
+
+	// A ".git" file that is not a gitdir pointer must not crash or resolve.
+	junk := filepath.Join(root, "wt-junk")
+	writeFile(t, filepath.Join(junk, ".git"), "not a gitdir line\n")
+	if got := branch(junk); got != "" {
+		t.Errorf("branch(junk .git) = %q, want %q", got, "")
 	}
 }

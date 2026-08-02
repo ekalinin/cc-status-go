@@ -47,7 +47,7 @@ func TestRenderGolden(t *testing.T) {
 	}
 
 	got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
-	want := "Opus │ directory │ feature-xyz │ 8% ctx │ 💰 $0.01 (+156/-23) │ 5h: 24% / 7d: 41% │ NORMAL │ 🤖 security-reviewer │ PR #1234 pending │ v2.1.90"
+	want := "Opus │ directory │ 🌳 feature-xyz │ 8% ctx │ 💰 $0.01 (+156/-23) │ 5h: 24% / 7d: 41% │ NORMAL │ 🤖 security-reviewer │ PR #1234 pending │ v2.1.90"
 	if got != want {
 		t.Errorf("Render mismatch:\n got: %q\nwant: %q", got, want)
 	}

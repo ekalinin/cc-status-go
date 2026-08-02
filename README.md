@@ -1,12 +1,13 @@
 # cc-status
 
 A fast, configurable status line for [Claude Code](https://claude.com/claude-code),
-written in Go. It reads the session JSON Claude Code provides on **stdin** and prints a
-single formatted line to **stdout**, shaped by a YAML config — in the spirit of
-[starship](https://starship.rs) and [oh-my-posh](https://ohmyposh.dev).
+written in Go. It reads the [session JSON](https://code.claude.com/docs/en/statusline)
+Claude Code provides on **stdin** and prints a single formatted line to **stdout**, shaped
+by a YAML config — in the spirit of [starship](https://starship.rs) and
+[oh-my-posh](https://ohmyposh.dev).
 
 ```
-Opus │ cc-status-go │ feature-xyz │ 8% ctx │ $0.01 (+156/-23) │ 5h 24% / 7d 41% │ NORMAL │ 🤖 security-reviewer │ PR #1234 pending
+Opus │ cc-status-go │ 🌿 main │ 8% ctx │ 💰 $0.01 (+156/-23) │ 5h: 24% / 7d: 41% │ NORMAL │ 🤖 security-reviewer │ PR #1234 pending
 ```
 
 ## Install
@@ -27,6 +28,39 @@ Wire it into Claude Code via `~/.claude/settings.json`:
 }
 ```
 
+## Try it
+
+`cc-status` is just a filter: feed it a session payload on stdin and it prints the line.
+Run this from inside any git repository to check your build without touching Claude Code:
+
+```sh
+cat <<EOF | cc-status
+{
+  "model": { "display_name": "Opus" },
+  "workspace": { "current_dir": "$PWD" },
+  "context_window": { "used_percentage": 8 },
+  "cost": { "total_cost_usd": 0.0123, "total_lines_added": 156, "total_lines_removed": 23 }
+}
+EOF
+```
+
+```
+Opus | cc-status-go | 🌿 main | 8% ctx | 💰 $0.01 (+156/-23)
+```
+
+The payload deliberately omits `rate_limits`, `vim`, `agent` and `pr`: those segments drop
+out along with their separators, which is exactly what happens in a real session. Add
+`--no-color` to compare output byte for byte, and `--debug` to surface template errors.
+
+A fuller payload with every optional section present lives in `testdata/sample.json`:
+
+```sh
+cc-status --config testdata/config.yaml < testdata/sample.json
+```
+
+For the complete list of fields Claude Code sends, see the
+[status line documentation](https://code.claude.com/docs/en/statusline).
+
 ## Configuration
 
 The config is **hybrid**: a flat list of segments. Each segment's `type` supplies smart
@@ -38,8 +72,8 @@ Config is discovered in this order:
 
 1. `--config <path>` flag
 2. `CC_STATUS_CONFIG` environment variable
-3. `$XDG_CONFIG_HOME/cc-status/config.yaml`
-4. `~/.config/cc-status/config.yaml`
+3. `$XDG_CONFIG_HOME/cc-status/config.yaml` (or `.yml`)
+4. `~/.config/cc-status/config.yaml` (or `.yml`)
 5. the built-in default (see `cc-status --print-config`)
 
 ```yaml
@@ -55,7 +89,7 @@ segments:
   - type: git
   - type: context
   - type: cost
-    when: "{{ if .Cost }}{{ gt .Cost.TotalCostUSD 0.0 }}{{ end }}"
+    when: "{{ .Cost }} && {{ gt .Cost.TotalCostUSD 0.0 }}"
   - type: rate_limit
   - type: vim
   - type: agent
@@ -77,7 +111,7 @@ relevant ones show. The default output and example for each type:
 | `cwd` | current directory name (folder only) | `cc-status-go` |
 | `project` | launch directory name, only when it differs from `cwd` | `my-app` |
 | `repo` | `owner/name` from the git `origin` remote | `anthropics/claude-code` |
-| `git` | worktree branch, else Claude worktree branch, else repo name | `feature-xyz` |
+| `git` | current branch, or the worktree you are in (see below) | `🌿 main` |
 | `cost` | session cost with lines added/removed | `💰 $0.01 (+156/-23)` |
 | `lines` | lines added/removed on their own (the diff from `cost`) | `+156/-23` |
 | `duration` | session wall-clock time | `1m30s` |
@@ -100,15 +134,34 @@ relevant ones show. The default output and example for each type:
 | `text` | nothing by default - supply your own `template` | (yours) |
 
 Each type's visibility guard is built in: e.g. `cost` shows only when spend is above `$0`,
-`output_style` hides the `default` style, and `git`/`vim`/`agent`/`pr` appear only when
-their data is present. Override any type's `template`, `when`, or `style` in your config;
+`output_style` hides the `default` style, and `vim`/`agent`/`pr` appear only when their
+data is present. Override any type's `template`, `when`, or `style` in your config;
 `--print-config` dumps the full set of defaults.
+
+#### The `git` segment
+
+The leading symbol tells you *where* you are, which the branch name alone does not:
+
+| you are in | shows | example |
+|------------|-------|---------|
+| the main working tree | 🌿 and the current branch | `🌿 main` |
+| a `git worktree add` checkout | 🌳 and the worktree name | `🌳 feature-xyz` |
+| a `claude --worktree` session | 🌳 and the worktree's branch | `🌳 worktree-my-feature` |
+| a detached HEAD, or no repository | nothing — the segment drops out | |
+
+Claude Code sends no field for the current branch: `workspace.git_worktree` is a worktree
+*name* and is absent in the main working tree, and `worktree.branch` only appears in
+`--worktree` sessions. So the last case reads `.git/HEAD` directly — the one place this
+tool touches the filesystem. It never shells out to `git`, which would cost milliseconds
+on every render; reading the file takes microseconds.
 
 ### Templates
 
 `template` and `when` are Go [`text/template`](https://pkg.go.dev/text/template) strings.
-The root context (`.`) is the full session object, so you can reference any field:
+The root context (`.`) is the full session object, so you can reference any field
+Claude Code [documents](https://code.claude.com/docs/en/statusline#json-input-structure):
 `{{ .Model.DisplayName }}`, `{{ .Cost.TotalCostUSD }}`, `{{ with .PR }}#{{ .Number }}{{ end }}`.
+Unknown fields are ignored, so a newer Claude Code never breaks the line.
 
 A segment is shown when its `when` renders to a truthy value — anything that isn't empty,
 `false`, or a nil/missing marker. Conditions combine with infix `&&` and `||` (`&&` binds
@@ -129,6 +182,7 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/�
 |------|---------|--------|
 | `basename path` | `{{ basename .Workspace.CurrentDir }}` | final component, e.g. `cc-status-go` (cwd default) |
 | `shortpath path n` | `{{ shortpath .Cwd 3 }}` | collapses `$HOME`→`~`, keeps last 3 parts |
+| `branch dir` | `{{ branch .Workspace.CurrentDir }}` | branch from `.git/HEAD`, empty outside a repo |
 | `duration ms` | `{{ duration .Cost.TotalDurationMS }}` | `45s`, `1m30s` |
 | `reltime unixSec` | `{{ reltime .RateLimits.FiveHour.ResetsAt }}` | `13m`, `2h13m`, `3d4h`, `now` |
 | `humantokens n` | `{{ humantokens .ContextWindow.TotalInputTokens }}` | `15.5k` |
@@ -163,6 +217,17 @@ Colors are disabled when `NO_COLOR` is set, `--no-color` is passed, or `no_color
 ## Development
 
 ```sh
-go test ./...
-echo '<session json>' | go run ./cmd/cc-status --config testdata/config.yaml
+make check    # gofmt -l, go vet, go test ./...  (run before committing)
+make run      # render testdata/sample.json with testdata/config.yaml
+make cover    # tests with a coverage summary
+
+go run ./cmd/cc-status --config testdata/config.yaml < testdata/sample.json
 ```
+
+Adding a segment type is one entry in the `defaults` map in `internal/config/defaults.go`
+(plus a helper in `internal/render/funcs.go` if the template needs one) — there is no
+registration anywhere else.
+
+Whatever you add, keep the crash-safety contract: no path in the render pipeline may panic
+out of `main` or exit non-zero, or Claude Code treats the status line as fatal. New segment
+logic must degrade to "skip the segment", never to an error.
