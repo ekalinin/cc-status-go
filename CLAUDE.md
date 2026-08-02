@@ -53,8 +53,10 @@ line to stdout. Each stage lives in its own `internal/` package.
   non-empty output; absent-data segments (and their separators) drop out automatically.
   Templates are `text/template` with `Option("missingkey=zero")`. A failing segment is
   **skipped, never fatal** (reported to stderr only under `--debug`). `funcs.go` defines
-  the custom template helpers (`basename`, `shortpath`, `duration`, `reltime`,
-  `humantokens`, `trunc`, `default`, `upper`/`lower`).
+  the custom template helpers (`basename`, `shortpath`, `branch`, `duration`, `reltime`,
+  `humantokens`, `trunc`, `default`, `upper`/`lower`). `branch` is the one helper that
+  touches the filesystem: the session JSON has no current-branch field, so it reads
+  `.git/HEAD` (never shelling out to `git`, which would cost milliseconds per render).
 
 - **`internal/style`** - parses style strings (`"bold cyan"`, `"fg:#ff8800 bg:240"`) into
   ANSI SGR codes. Disabled by `NO_COLOR` env, `--no-color`, or `no_color: true` in config;

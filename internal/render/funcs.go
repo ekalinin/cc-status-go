@@ -14,6 +14,7 @@ import (
 var funcMap = template.FuncMap{
 	"shortpath":   shortpath,
 	"basename":    basename,
+	"branch":      branch,
 	"duration":    duration,
 	"reltime":     reltime,
 	"humantokens": humantokens,
@@ -62,6 +63,78 @@ func basename(path string) string {
 		return ""
 	}
 	return filepath.Base(path)
+}
+
+// branch returns the git branch checked out at dir, e.g. "main". The session
+// JSON carries no current-branch field (workspace.git_worktree is a worktree
+// name and absent in the main working tree; worktree.branch exists only in
+// --worktree sessions), so it is read from .git/HEAD.
+//
+// Reading the file rather than shelling out to "git branch --show-current"
+// keeps the segment in the microsecond range instead of the milliseconds a
+// subprocess costs on every render. A detached HEAD has no branch and yields ""
+// (as does "git branch --show-current"), and so does every failure path, which
+// simply drops the segment.
+func branch(dir string) string {
+	gitDir := findGitDir(dir)
+	if gitDir == "" {
+		return ""
+	}
+	head, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
+	if err != nil {
+		return ""
+	}
+	// "ref: refs/heads/<branch>" when on a branch, a raw commit sha when not.
+	ref, ok := strings.CutPrefix(strings.TrimSpace(string(head)), "ref: refs/heads/")
+	if !ok {
+		return ""
+	}
+	return ref
+}
+
+// findGitDir walks up from dir to the filesystem root looking for ".git" and
+// returns the directory holding that working tree's HEAD, or "" when dir is not
+// inside a repository. A ".git" directory is the main working tree; a ".git"
+// file holds "gitdir: <path>" pointing at the git directory of a linked
+// worktree or submodule, which keeps its own HEAD.
+func findGitDir(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	for {
+		dotGit := filepath.Join(dir, ".git")
+		if info, err := os.Stat(dotGit); err == nil {
+			if info.IsDir() {
+				return dotGit
+			}
+			return resolveGitFile(dir, dotGit)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
+// resolveGitFile reads a ".git" file and returns the path its "gitdir:" line
+// points at, resolving a relative target against the working tree holding it.
+func resolveGitFile(worktree, dotGit string) string {
+	data, err := os.ReadFile(dotGit)
+	if err != nil {
+		return ""
+	}
+	target, ok := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir:")
+	if !ok {
+		return ""
+	}
+	if target = strings.TrimSpace(target); target == "" {
+		return ""
+	}
+	if filepath.IsAbs(target) {
+		return target
+	}
+	return filepath.Join(worktree, target)
 }
 
 // duration formats a millisecond count as a compact human string (e.g. 45s,
