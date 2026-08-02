@@ -150,6 +150,27 @@ func TestRateLimitFullPartial(t *testing.T) {
 	}
 }
 
+// TestEffortSegments checks the bare and labelled variants, and that both drop
+// out when "effort" is absent or carries no level.
+func TestEffortSegments(t *testing.T) {
+	cfg, err := config.Load(writeTempConfig(t, "separator: \" | \"\nsegments:\n  - type: effort\n  - type: effort_full\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]string{
+		`{"effort":{"level":"high"}}`: "high | effort:high",
+		`{"effort":{"level":""}}`:     "", // present but unset
+		`{}`:                          "", // absent
+	}
+	for payload, want := range cases {
+		in, _ := input.Parse([]byte(payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != want {
+			t.Errorf("payload %s => %q, want %q", payload, got, want)
+		}
+	}
+}
+
 // TestNewSegments covers the segment types added on top of the original set:
 // the fast_mode/exceeds_200k badges, repo/project/lines, and the cache segment
 // with its volume-and-hit-ratio template.

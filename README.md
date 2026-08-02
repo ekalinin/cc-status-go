@@ -121,7 +121,8 @@ relevant ones show. The default output and example for each type:
 | `rate_limit` | 5h and 7d usage percentages | `5h: 24% / 7d: 41%` |
 | `rate_limit_full` | usage percentages plus each window's reset time | `5h: 24% (in 2h13m) / 7d: 41% (in 3d4h)` |
 | `output_style` | active output style name (hidden when `default`) | `explanatory` |
-| `effort` | reasoning effort level | `effort:high` |
+| `effort` | reasoning effort level | `high` |
+| `effort_full` | reasoning effort level, labelled | `effort:high` |
 | `thinking` | literal `thinking` when extended thinking is on | `thinking` |
 | `vim` | current vim mode | `NORMAL` |
 | `agent` | active subagent name | `🤖 security-reviewer` |
@@ -137,6 +138,11 @@ Each type's visibility guard is built in: e.g. `cost` shows only when spend is a
 `output_style` hides the `default` style, and `vim`/`agent`/`pr` appear only when their
 data is present. Override any type's `template`, `when`, or `style` in your config;
 `--print-config` dumps the full set of defaults.
+
+Where the same data has a compact and a detailed rendering, the plain name is the compact
+one and the detailed one is `<type>_full` - `rate_limit` / `rate_limit_full`, `effort` /
+`effort_full`. A status line is only a few columns wide, so the shorter form is the
+default and you opt into the longer one.
 
 #### The `git` segment
 
