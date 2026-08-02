@@ -79,5 +79,3 @@ optional (pointer) section.
   segment", not error.
 - Adding a segment type = one entry in the `defaults` map in `config/defaults.go` (plus a
   helper in `render/funcs.go` if the template needs one). No registration elsewhere.
-- Specs in `.spec.md` (behavior) and `.spec.perf.md` (performance) capture the original
-  design intent; consult them for the "why".
