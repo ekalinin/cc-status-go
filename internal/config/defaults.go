@@ -117,8 +117,16 @@ var defaults = map[string]Segment{
 		Style:    "dim",
 	},
 	"effort": {
+		// Just the level, for a line that already reads unambiguously; use
+		// effort_full when the value needs naming.
+		Template: "{{ .Effort.Level }}",
+		When:     "{{ .Effort }} && {{ .Effort.Level }}",
+		Style:    "magenta",
+	},
+	"effort_full": {
+		// Like effort, but labelled.
 		Template: "effort:{{ .Effort.Level }}",
-		When:     "{{ .Effort }}",
+		When:     "{{ .Effort }} && {{ .Effort.Level }}",
 		Style:    "magenta",
 	},
 	"thinking": {

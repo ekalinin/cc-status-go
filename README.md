@@ -121,7 +121,8 @@ relevant ones show. The default output and example for each type:
 | `rate_limit` | 5h and 7d usage percentages | `5h: 24% / 7d: 41%` |
 | `rate_limit_full` | usage percentages plus each window's reset time | `5h: 24% (in 2h13m) / 7d: 41% (in 3d4h)` |
 | `output_style` | active output style name (hidden when `default`) | `explanatory` |
-| `effort` | reasoning effort level | `effort:high` |
+| `effort` | reasoning effort level | `high` |
+| `effort_full` | reasoning effort level, labelled | `effort:high` |
 | `thinking` | literal `thinking` when extended thinking is on | `thinking` |
 | `vim` | current vim mode | `NORMAL` |
 | `agent` | active subagent name | `🤖 security-reviewer` |
