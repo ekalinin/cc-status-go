@@ -47,7 +47,7 @@ func TestRenderGolden(t *testing.T) {
 	}
 
 	got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
-	want := "Opus │ directory │ 🌳 feature-xyz │ 8% ctx │ 💰 $0.01 (+156/-23) │ 5h: 24% / 7d: 41% │ NORMAL │ 🤖 security-reviewer │ PR #1234 pending │ v2.1.90"
+	want := "Opus │ directory │ 🌳 feature-xyz │ 8% │ 💰 $0.01 (+156/-23) │ 5h: 24% / 7d: 41% │ NORMAL │ 🤖 security-reviewer │ #1234 │ v2.1.90"
 	if got != want {
 		t.Errorf("Render mismatch:\n got: %q\nwant: %q", got, want)
 	}
@@ -67,7 +67,7 @@ func TestRenderDropsAbsentSegments(t *testing.T) {
 	applyDefaultsForTest(cfg)
 
 	got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
-	if strings.Contains(got, "PR") || strings.Contains(got, "$") {
+	if strings.Contains(got, "#") || strings.Contains(got, "$") {
 		t.Errorf("absent segments leaked into output: %q", got)
 	}
 	if strings.Count(got, "│") != 1 { // only model │ cwd
@@ -171,6 +171,50 @@ func TestEffortSegments(t *testing.T) {
 	}
 }
 
+// TestShortAndFullSegments checks the bare/labelled pairs: the plain type
+// renders the numbers alone, "<type>_full" spells them out, and both drop on the
+// same absent data.
+func TestShortAndFullSegments(t *testing.T) {
+	cases := []struct{ segments, payload, want string }{
+		{
+			"  - type: context\n  - type: context_full\n",
+			`{"context_window":{"used_percentage":8}}`,
+			"8% | 8% ctx",
+		},
+		{
+			"  - type: tokens\n  - type: tokens_full\n",
+			`{"context_window":{"total_input_tokens":15500,"total_output_tokens":1200}}`,
+			"15.5k / 1.2k | 15.5k in / 1.2k out",
+		},
+		{
+			"  - type: cache\n  - type: cache_full\n",
+			`{"context_window":{"current_usage":{"input_tokens":8500,"cache_creation_input_tokens":5000,"cache_read_input_tokens":2000}}}`,
+			"2.0k (13%) | 2.0k cached (13%)",
+		},
+		{
+			"  - type: pr\n  - type: pr_full\n",
+			`{"pr":{"number":1234,"review_state":"pending"}}`,
+			"#1234 | PR #1234 pending",
+		},
+		// No context_window / no pr: every variant drops out.
+		{"  - type: context\n  - type: context_full\n", `{}`, ""},
+		{"  - type: tokens\n  - type: tokens_full\n", `{}`, ""},
+		{"  - type: cache\n  - type: cache_full\n", `{}`, ""},
+		{"  - type: pr\n  - type: pr_full\n", `{}`, ""},
+	}
+	for _, c := range cases {
+		cfg, err := config.Load(writeTempConfig(t, "separator: \" | \"\nsegments:\n"+c.segments))
+		if err != nil {
+			t.Fatalf("config %q: %v", c.segments, err)
+		}
+		in, _ := input.Parse([]byte(c.payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != c.want {
+			t.Errorf("segments %q on %s => %q, want %q", c.segments, c.payload, got, c.want)
+		}
+	}
+}
+
 // TestNewSegments covers the segment types added on top of the original set:
 // the fast_mode/exceeds_200k badges, repo/project/lines, and the cache segment
 // with its volume-and-hit-ratio template.
@@ -186,7 +230,7 @@ func TestNewSegments(t *testing.T) {
 		`{"fast_mode":true,"exceeds_200k_tokens":true,` +
 			`"workspace":{"current_dir":"/a/app","project_dir":"/a/proj","repo":{"owner":"anthropics","name":"claude-code"}},` +
 			`"cost":{"total_lines_added":156,"total_lines_removed":23},` +
-			`"context_window":{"current_usage":{"input_tokens":8500,"cache_creation_input_tokens":5000,"cache_read_input_tokens":2000}}}`: "⚡ fast | ⚠ 200k+ | anthropics/claude-code | proj | +156/-23 | 2.0k cached (13%)",
+			`"context_window":{"current_usage":{"input_tokens":8500,"cache_creation_input_tokens":5000,"cache_read_input_tokens":2000}}}`: "⚡ fast | ⚠ 200k+ | anthropics/claude-code | proj | +156/-23 | 2.0k (13%)",
 		// Badges off; project_dir == current_dir hides project; no repo/usage.
 		`{"fast_mode":false,"exceeds_200k_tokens":false,` +
 			`"workspace":{"current_dir":"/a/app","project_dir":"/a/app"},` +

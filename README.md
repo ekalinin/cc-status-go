@@ -116,9 +116,12 @@ relevant ones show. The default output and example for each type:
 | `cost` | session cost with lines added/removed | `💰 $0.01 (+156/-23)` |
 | `lines` | lines added/removed on their own (the diff from `cost`) | `+156/-23` |
 | `duration` | session wall-clock time | `1m30s` |
-| `context` | context window used, in percent | `8% ctx` |
-| `tokens` | input / output tokens, human-readable | `15.5k in / 2.1k out` |
-| `cache` | cache-read tokens and hit ratio from the last response | `2.0k cached (13%)` |
+| `context` | context window used, in percent | `8%` |
+| `context_full` | the same, labelled | `8% ctx` |
+| `tokens` | input / output tokens, human-readable | `15.5k / 2.1k` |
+| `tokens_full` | the same, labelled | `15.5k in / 2.1k out` |
+| `cache` | cache-read tokens and hit ratio from the last response | `2.0k (13%)` |
+| `cache_full` | the same, labelled | `2.0k cached (13%)` |
 | `rate_limit` | 5h and 7d usage percentages | `5h: 24% / 7d: 41%` |
 | `rate_limit_full` | usage percentages plus each window's reset time | `5h: 24% (in 2h13m) / 7d: 41% (in 3d4h)` |
 | `output_style` | active output style name (hidden when `default`) | `explanatory` |
@@ -127,7 +130,8 @@ relevant ones show. The default output and example for each type:
 | `thinking` | literal `thinking` when extended thinking is on | `thinking` |
 | `vim` | current vim mode | `NORMAL` |
 | `agent` | active subagent name | `🤖 security-reviewer` |
-| `pr` | pull request number and review state | `PR #1234 pending` |
+| `pr` | pull request number | `#1234` |
+| `pr_full` | pull request number, labelled, with its review state | `PR #1234 pending` |
 | `worktree` | Claude Code worktree name | `fix-login` |
 | `session` | session name | `my-session` |
 | `version` | Claude Code version | `v1.2.3` |
@@ -141,9 +145,13 @@ data is present. Override any type's `template`, `when`, `style`, or `symbol` in
 `--print-config` dumps the full set of defaults.
 
 Where the same data has a compact and a detailed rendering, the plain name is the compact
-one and the detailed one is `<type>_full` - `rate_limit` / `rate_limit_full`, `effort` /
-`effort_full`. A status line is only a few columns wide, so the shorter form is the
-default and you opt into the longer one.
+one and the detailed one is `<type>_full`: `context`, `tokens`, `cache`, `pr`, `rate_limit`
+and `effort` all come in a pair. The short form prints the numbers alone, `_full` spells
+them out - the words (`ctx`, `in`/`out`, `cached`, `PR`), the review state for `pr`, each
+window's reset time for `rate_limit_full`. A status line is only a few columns wide, so the
+shorter form is the default and you opt into the longer one. The built-in config is the
+exception: it lists `context_full`, `pr_full` and `rate_limit_full`, since a first-run line
+should read without a legend.
 
 #### Symbols
 
