@@ -229,6 +229,40 @@ func TestSegmentSymbolOverride(t *testing.T) {
 	}
 }
 
+// TestSymbolOnGlyphlessType checks that "symbol" works on the types that ship
+// no glyph of their own, without the user having to restate the template - and
+// that a type whose template can render "" does not leave the symbol behind as
+// the whole segment.
+func TestSymbolOnGlyphlessType(t *testing.T) {
+	cases := []struct{ segment, payload, want string }{
+		{"  - type: model\n", `{"model":{"display_name":"Opus"}}`, "Opus"},
+		{"  - type: model\n    symbol: \"🧠\"\n", `{"model":{"display_name":"Opus"}}`, "🧠 Opus"},
+		{
+			"  - type: rate_limit_full\n    symbol: \"⏳\"\n",
+			`{"rate_limits":{"five_hour":{"used_percentage":24,"resets_at":0}}}`,
+			"⏳ 5h: 24% (in now)",
+		},
+		{
+			// rate_limits present but with no window: the segment drops whole,
+			// symbol included.
+			"  - type: rate_limit_full\n    symbol: \"⏳\"\n",
+			`{"rate_limits":{}}`,
+			"",
+		},
+	}
+	for _, c := range cases {
+		cfg, err := config.Load(writeTempConfig(t, "segments:\n"+c.segment))
+		if err != nil {
+			t.Fatalf("config %q: %v", c.segment, err)
+		}
+		in, _ := input.Parse([]byte(c.payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != c.want {
+			t.Errorf("segment %q on %s => %q, want %q", c.segment, c.payload, got, c.want)
+		}
+	}
+}
+
 // TestSymbolDefaultsMerge covers how a partial override meets the type's
 // defaults: named symbols merge key by key, while a scalar replaces the set.
 func TestSymbolDefaultsMerge(t *testing.T) {

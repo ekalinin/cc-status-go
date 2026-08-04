@@ -3,9 +3,9 @@
 # or pointing CC_STATUS_CONFIG / --config at it.
 #
 # Each segment's `type` provides smart defaults for template/when/style/symbol;
-# set any of those here to override them. `symbol` swaps a segment's glyph
-# without restating its template, e.g. `symbol: "$"` on cost, or
-# `symbol: {branch: "⎇"}` on git.
+# set any of those here to override them. `symbol` sets a segment's leading glyph
+# without restating its template and works on every type, e.g. `symbol: "$"` on
+# cost, `symbol: "⏳"` on rate_limit, or `symbol: {branch: "⎇"}` on git.
 
 separator: " | "
 no_color: false

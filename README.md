@@ -147,8 +147,24 @@ default and you opt into the longer one.
 
 #### Symbols
 
-Every segment that leads with a glyph keeps it in a separate `symbol` field, so you can
-change it without restating the whole template:
+A segment's leading glyph lives in its own `symbol` field, so you can change it without
+restating the whole template. **Every type accepts one**, including the types that ship no
+glyph of their own:
+
+```yaml
+segments:
+  - type: cost
+    symbol: "$"        # a scalar sets the segment's one symbol
+  - type: rate_limit_full
+    symbol: "⏳"       # a type with no glyph by default - no template needed
+  - type: agent
+    symbol: ""         # empty drops the glyph, leaving no stray space
+  - type: git
+    symbol:            # a mapping sets symbols by name
+      worktree: "🌲"   # branch keeps its default 🌿
+```
+
+These are the types that come with a glyph already; everywhere else the default is no symbol:
 
 | type | default | names |
 |------|---------|-------|
@@ -157,17 +173,6 @@ change it without restating the whole template:
 | `agent` | 🤖 | — |
 | `fast_mode` | ⚡ | — |
 | `exceeds_200k` | ⚠ | — |
-
-```yaml
-segments:
-  - type: cost
-    symbol: "$"        # a scalar sets the segment's one symbol
-  - type: agent
-    symbol: ""         # empty drops the glyph, leaving no stray space
-  - type: git
-    symbol:            # a mapping sets symbols by name
-      worktree: "🌲"   # branch keeps its default 🌿
-```
 
 A mapping overrides only the names it lists and the rest keep their defaults; a scalar
 replaces the whole set, so `symbol: "⎇"` on `git` uses that one glyph for both cases.
