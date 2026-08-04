@@ -14,9 +14,9 @@ segments:
   - type: model
   - type: cwd
   - type: git
-  - type: context
+  - type: context_full
   - type: cost
   - type: rate_limit_full
   - type: vim
   - type: agent
-  - type: pr
+  - type: pr_full

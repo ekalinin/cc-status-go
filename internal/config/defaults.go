@@ -96,11 +96,26 @@ var defaults = map[string]Segment{
 		Style:    "green",
 	},
 	"context": {
+		// Just the percentage, for a line where the number speaks for itself;
+		// use context_full when it needs naming.
+		Template: "{{ symbol }} {{ printf \"%.0f\" .ContextWindow.UsedPercentage }}%",
+		When:     "{{ .ContextWindow }}",
+		Style:    "yellow",
+	},
+	"context_full": {
+		// Like context, but labelled.
 		Template: "{{ symbol }} {{ printf \"%.0f\" .ContextWindow.UsedPercentage }}% ctx",
 		When:     "{{ .ContextWindow }}",
 		Style:    "yellow",
 	},
 	"tokens": {
+		// Input / output, in that order; use tokens_full to say which is which.
+		Template: "{{ symbol }} {{ humantokens .ContextWindow.TotalInputTokens }} / {{ humantokens .ContextWindow.TotalOutputTokens }}",
+		When:     "{{ .ContextWindow }}",
+		Style:    "dim",
+	},
+	"tokens_full": {
+		// Like tokens, but labelled.
 		Template: "{{ symbol }} {{ humantokens .ContextWindow.TotalInputTokens }} in / {{ humantokens .ContextWindow.TotalOutputTokens }} out",
 		When:     "{{ .ContextWindow }}",
 		Style:    "dim",
@@ -109,6 +124,12 @@ var defaults = map[string]Segment{
 		// Cache-read volume and hit ratio from the last API response. The hit
 		// ratio is cache reads over all input tokens (fresh + cache write +
 		// cache read), matching how used_percentage counts input.
+		Template: "{{ symbol }} {{ with .ContextWindow.CurrentUsage }}{{ humantokens .CacheReadInputTokens }} ({{ pct .CacheReadInputTokens (add .InputTokens .CacheCreationInputTokens .CacheReadInputTokens) }}%){{ end }}",
+		When:     "{{ .ContextWindow }} && {{ .ContextWindow.CurrentUsage }}",
+		Style:    "dim",
+	},
+	"cache_full": {
+		// Like cache, but labelled.
 		Template: "{{ symbol }} {{ with .ContextWindow.CurrentUsage }}{{ humantokens .CacheReadInputTokens }} cached ({{ pct .CacheReadInputTokens (add .InputTokens .CacheCreationInputTokens .CacheReadInputTokens) }}%){{ end }}",
 		When:     "{{ .ContextWindow }} && {{ .ContextWindow.CurrentUsage }}",
 		Style:    "dim",
@@ -163,6 +184,14 @@ var defaults = map[string]Segment{
 		Symbol:   Symbols{"": "\U0001F916"},
 	},
 	"pr": {
+		// Just the number: the "#" says what it is. Use pr_full for the label
+		// and the review state.
+		Template: "{{ symbol }} #{{ .PR.Number }}",
+		When:     "{{ .PR }} && {{ gt .PR.Number 0 }}",
+		Style:    "cyan",
+	},
+	"pr_full": {
+		// Like pr, but labelled and with the review state.
 		Template: "{{ symbol }} PR #{{ .PR.Number }}{{ with .PR.ReviewState }} {{ . }}{{ end }}",
 		When:     "{{ .PR }} && {{ gt .PR.Number 0 }}",
 		Style:    "cyan",
