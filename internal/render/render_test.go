@@ -201,6 +201,94 @@ func TestNewSegments(t *testing.T) {
 	}
 }
 
+// TestSegmentSymbolOverride checks the "symbol" field end to end: both YAML
+// shapes reach the template, an empty symbol leaves no stray space, and a scalar
+// on a multi-symbol type covers every one of its symbols.
+func TestSegmentSymbolOverride(t *testing.T) {
+	// git_worktree keeps the git segment off the filesystem: it never falls
+	// through to reading .git/HEAD.
+	const payload = `{"workspace":{"git_worktree":"feature-xyz"},"cost":{"total_cost_usd":0.5}}`
+	cases := map[string]string{
+		"  - type: cost\n":                                "💰 $0.50 (+0/-0)", // default
+		"  - type: cost\n    symbol: \"$\"\n":             "$ $0.50 (+0/-0)", // scalar
+		"  - type: cost\n    symbol: \"\"\n":              "$0.50 (+0/-0)",   // dropped, no leading space
+		"  - type: git\n":                                 "🌳 feature-xyz",   // default
+		"  - type: git\n    symbol:\n      worktree: W\n": "W feature-xyz",   // one named symbol
+		"  - type: git\n    symbol: \"@\"\n":              "@ feature-xyz",   // scalar covers every name
+	}
+	for segment, want := range cases {
+		cfg, err := config.Load(writeTempConfig(t, "segments:\n"+segment))
+		if err != nil {
+			t.Fatalf("config %q: %v", segment, err)
+		}
+		in, _ := input.Parse([]byte(payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != want {
+			t.Errorf("segment %q => %q, want %q", segment, got, want)
+		}
+	}
+}
+
+// TestSymbolOnGlyphlessType checks that "symbol" works on the types that ship
+// no glyph of their own, without the user having to restate the template - and
+// that a type whose template can render "" does not leave the symbol behind as
+// the whole segment.
+func TestSymbolOnGlyphlessType(t *testing.T) {
+	cases := []struct{ segment, payload, want string }{
+		{"  - type: model\n", `{"model":{"display_name":"Opus"}}`, "Opus"},
+		{"  - type: model\n    symbol: \"🧠\"\n", `{"model":{"display_name":"Opus"}}`, "🧠 Opus"},
+		{
+			"  - type: rate_limit_full\n    symbol: \"⏳\"\n",
+			`{"rate_limits":{"five_hour":{"used_percentage":24,"resets_at":0}}}`,
+			"⏳ 5h: 24% (in now)",
+		},
+		{
+			// rate_limits present but with no window: the segment drops whole,
+			// symbol included.
+			"  - type: rate_limit_full\n    symbol: \"⏳\"\n",
+			`{"rate_limits":{}}`,
+			"",
+		},
+	}
+	for _, c := range cases {
+		cfg, err := config.Load(writeTempConfig(t, "segments:\n"+c.segment))
+		if err != nil {
+			t.Fatalf("config %q: %v", c.segment, err)
+		}
+		in, _ := input.Parse([]byte(c.payload))
+		got := Render(in, cfg, style.Renderer{Disabled: true}, Options{})
+		if got != c.want {
+			t.Errorf("segment %q on %s => %q, want %q", c.segment, c.payload, got, c.want)
+		}
+	}
+}
+
+// TestSymbolDefaultsMerge covers how a partial override meets the type's
+// defaults: named symbols merge key by key, while a scalar replaces the set.
+func TestSymbolDefaultsMerge(t *testing.T) {
+	cfg, err := config.Load(writeTempConfig(t, "segments:\n"+
+		"  - type: git\n    symbol:\n      worktree: W\n"+
+		"  - type: git\n    symbol: \"@\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Segments[0].Symbol["branch"]; got != "🌿" {
+		t.Errorf("named override dropped the default branch symbol: %q", got)
+	}
+	if _, ok := cfg.Segments[1].Symbol["branch"]; ok {
+		t.Error("scalar override should replace the named defaults, not merge with them")
+	}
+}
+
+// TestSymbolBadShape checks that a "symbol" that is neither a scalar nor a
+// mapping is reported as a config error rather than panicking.
+func TestSymbolBadShape(t *testing.T) {
+	_, err := config.Load(writeTempConfig(t, "segments:\n  - type: cost\n    symbol: [a, b]\n"))
+	if err == nil {
+		t.Fatal("want an error for a sequence symbol, got nil")
+	}
+}
+
 func writeTempConfig(t *testing.T, body string) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "config.yaml")

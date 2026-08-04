@@ -45,8 +45,11 @@ line to stdout. Each stage lives in its own `internal/` package.
   `~/.config/cc-status/config.{yaml,yml}` → embedded `default.yaml`. `defaults.go` holds
   the **per-type registry** (`model`, `git`, `cost`, `rate_limit`, `pr`, `repo`, `project`,
   `lines`, `cache`, `fast_mode`, `exceeds_200k`, `text`, …): a
-  segment's empty `Template`/`When`/`Style` are filled from its type's entry, and anything
-  set in user config wins. `default.yaml` is embedded via `//go:embed`.
+  segment's empty `Template`/`When`/`Style`/`Symbol` are filled from its type's entry, and
+  anything set in user config wins. `default.yaml` is embedded via `//go:embed`.
+  `Symbol` is a `Symbols` map whose YAML accepts either a scalar (stored under the unnamed
+  key `""`) or a name→glyph mapping; `mergeSymbols` merges named symbols key by key, while
+  a scalar replaces the type's whole set.
 
 - **`internal/render`** - executes segments and joins non-empty results with the
   separator. A segment renders only if `when` is truthy and its `template` produces
@@ -79,6 +82,12 @@ optional (pointer) section.
   segment", not error.
 - Adding a segment type = one entry in the `defaults` map in `config/defaults.go` (plus a
   helper in `render/funcs.go` if the template needs one). No registration elsewhere.
+- **Glyphs go in `Symbol`, never in the template text.** Every default template opens with
+  `{{ symbol }}` and a space (or `{{ symbol "name" }}` when the type picks between several),
+  including types that ship no glyph: an unset symbol renders `""` and the leading space is
+  trimmed off the segment, so any type accepts `symbol:` without the user restating its
+  template. A template that self-drops by rendering `""` must have a `when` covering that
+  case, or the symbol survives as the whole segment - see `rate_limit`.
 - **Short type by default, `_full` for the verbose variant.** When one kind of data has a
   compact and a detailed rendering, the bare name is the compact one and the detailed one
   is `<type>_full`: `rate_limit` / `rate_limit_full`, `effort` / `effort_full`. A status

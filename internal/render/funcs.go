@@ -7,6 +7,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/shorrty/cc-status-go/internal/config"
 )
 
 // funcMap is the set of helpers available to segment templates, on top of the
@@ -24,6 +26,23 @@ var funcMap = template.FuncMap{
 	"lower":       strings.ToLower,
 	"add":         add,
 	"pct":         pct,
+}
+
+// symbolFunc binds one segment's symbols to the "symbol" helper, which is why
+// it is built per template instead of living in funcMap: {{ symbol }} yields the
+// unnamed symbol and {{ symbol "worktree" }} a named one. An unknown name falls
+// back to the unnamed symbol, so a scalar override in the config covers every
+// symbol of a multi-symbol segment. A segment with no symbols yields "", which
+// the caller's TrimSpace then strips along with the space that followed it.
+func symbolFunc(sym config.Symbols) func(...string) string {
+	return func(name ...string) string {
+		if len(name) > 0 {
+			if s, ok := sym[name[0]]; ok {
+				return s
+			}
+		}
+		return sym[""]
+	}
 }
 
 // shortpath collapses $HOME to "~" and keeps only the last n path components,
