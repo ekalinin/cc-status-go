@@ -64,9 +64,9 @@ For the complete list of fields Claude Code sends, see the
 ## Configuration
 
 The config is **hybrid**: a flat list of segments. Each segment's `type` supplies smart
-defaults for its `template`, `when` (visibility), and `style`; set any of those fields to
-override the default. Segments whose data is absent (e.g. no `cost`, no `pr`) drop out
-automatically — together with their separator.
+defaults for its `template`, `when` (visibility), `style` and `symbol`; set any of those
+fields to override the default. Segments whose data is absent (e.g. no `cost`, no `pr`) drop
+out automatically — together with their separator.
 
 Config is discovered in this order:
 
@@ -89,6 +89,7 @@ segments:
   - type: git
   - type: context
   - type: cost
+    symbol: "$"         # swap the 💰 glyph without restating the template
     when: "{{ .Cost }} && {{ gt .Cost.TotalCostUSD 0.0 }}"
   - type: rate_limit
   - type: vim
@@ -136,13 +137,44 @@ relevant ones show. The default output and example for each type:
 
 Each type's visibility guard is built in: e.g. `cost` shows only when spend is above `$0`,
 `output_style` hides the `default` style, and `vim`/`agent`/`pr` appear only when their
-data is present. Override any type's `template`, `when`, or `style` in your config;
+data is present. Override any type's `template`, `when`, `style`, or `symbol` in your config;
 `--print-config` dumps the full set of defaults.
 
 Where the same data has a compact and a detailed rendering, the plain name is the compact
 one and the detailed one is `<type>_full` - `rate_limit` / `rate_limit_full`, `effort` /
 `effort_full`. A status line is only a few columns wide, so the shorter form is the
 default and you opt into the longer one.
+
+#### Symbols
+
+Every segment that leads with a glyph keeps it in a separate `symbol` field, so you can
+change it without restating the whole template:
+
+| type | default | names |
+|------|---------|-------|
+| `git` | 🌿 / 🌳 | `branch`, `worktree` |
+| `cost` | 💰 | — |
+| `agent` | 🤖 | — |
+| `fast_mode` | ⚡ | — |
+| `exceeds_200k` | ⚠ | — |
+
+```yaml
+segments:
+  - type: cost
+    symbol: "$"        # a scalar sets the segment's one symbol
+  - type: agent
+    symbol: ""         # empty drops the glyph, leaving no stray space
+  - type: git
+    symbol:            # a mapping sets symbols by name
+      worktree: "🌲"   # branch keeps its default 🌿
+```
+
+A mapping overrides only the names it lists and the rest keep their defaults; a scalar
+replaces the whole set, so `symbol: "⎇"` on `git` uses that one glyph for both cases.
+
+In your own `template` the symbol is `{{ symbol }}`, or `{{ symbol "worktree" }}` for a named
+one. Put it first and follow it with a space: an empty symbol then disappears along with that
+space, since the rendered segment is trimmed.
 
 #### The `git` segment
 
@@ -154,6 +186,9 @@ The leading symbol tells you *where* you are, which the branch name alone does n
 | a `git worktree add` checkout | 🌳 and the worktree name | `🌳 feature-xyz` |
 | a `claude --worktree` session | 🌳 and the worktree's branch | `🌳 worktree-my-feature` |
 | a detached HEAD, or no repository | nothing — the segment drops out | |
+
+Both glyphs are configurable — `symbol: {branch: "⎇", worktree: "🌲"}`, see
+[Symbols](#symbols) above.
 
 Claude Code sends no field for the current branch: `workspace.git_worktree` is a worktree
 *name* and is absent in the main working tree, and `worktree.branch` only appears in
@@ -189,6 +224,7 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/�
 | `basename path` | `{{ basename .Workspace.CurrentDir }}` | final component, e.g. `cc-status-go` (cwd default) |
 | `shortpath path n` | `{{ shortpath .Cwd 3 }}` | collapses `$HOME`→`~`, keeps last 3 parts |
 | `branch dir` | `{{ branch .Workspace.CurrentDir }}` | branch from `.git/HEAD`, empty outside a repo |
+| `symbol [name]` | `{{ symbol }}`, `{{ symbol "worktree" }}` | this segment's `symbol`, see [Symbols](#symbols) |
 | `duration ms` | `{{ duration .Cost.TotalDurationMS }}` | `45s`, `1m30s` |
 | `reltime unixSec` | `{{ reltime .RateLimits.FiveHour.ResetsAt }}` | `13m`, `2h13m`, `3d4h`, `now` |
 | `humantokens n` | `{{ humantokens .ContextWindow.TotalInputTokens }}` | `15.5k` |

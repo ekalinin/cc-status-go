@@ -9,10 +9,17 @@ var defaultYAML []byte
 // --print-config flag.
 func DefaultYAML() []byte { return defaultYAML }
 
-// defaults holds the built-in Template/When/Style for each known segment type.
-// A segment's empty fields are filled from its entry here; anything set in the
-// user config wins. The "text" type intentionally has no default template so
+// defaults holds the built-in Template/When/Style/Symbol for each known segment
+// type. A segment's empty fields are filled from its entry here; anything set in
+// the user config wins. The "text" type intentionally has no default template so
 // users supply their own literal/template.
+//
+// A type's glyphs belong in Symbol, not in the template text: the template
+// reaches them with {{ symbol }} (or {{ symbol "name" }} when a type picks
+// between several), which is what lets a user change one glyph without
+// restating the template. Put the symbol first and follow it with a space -
+// when it is overridden with "", the leading space is trimmed off the rendered
+// segment and the glyph simply disappears.
 //
 // "when" is a boolean expression of templates joined by infix "&&"/"||" ("&&"
 // binds tighter), evaluated for truthiness with short-circuit: a sub-condition
@@ -48,10 +55,10 @@ var defaults = map[string]Segment{
 	},
 	"git": {
 		// Where we are, with the leading symbol saying what kind of place:
-		// 🌳 for a worktree (its name from workspace.git_worktree, or the
-		// branch of a --worktree session), 🌿 for a branch in the main working
-		// tree. Neither field is present in an ordinary session, so the last
-		// case reads the branch from .git/HEAD.
+		// "worktree" (🌳) for a worktree (its name from workspace.git_worktree,
+		// or the branch of a --worktree session), "branch" (🌿) for a branch in
+		// the main working tree. Neither field is present in an ordinary
+		// session, so the last case reads the branch from .git/HEAD.
 		//
 		// No "when": the template yields "" outside a git repository (and for a
 		// detached HEAD), which drops the segment on its own. Guarding on
@@ -59,14 +66,16 @@ var defaults = map[string]Segment{
 		// "origin" remote, where that field is absent.
 		Template: "{{ $wt := .Workspace.GitWorktree }}" +
 			"{{ with .Worktree }}{{ $wt = or $wt .Branch }}{{ end }}" +
-			"{{ if $wt }}🌳 {{ $wt }}" +
-			"{{ else }}{{ with branch .Workspace.CurrentDir }}🌿 {{ . }}{{ end }}{{ end }}",
-		Style: "purple",
+			"{{ if $wt }}{{ symbol \"worktree\" }} {{ $wt }}" +
+			"{{ else }}{{ with branch .Workspace.CurrentDir }}{{ symbol \"branch\" }} {{ . }}{{ end }}{{ end }}",
+		Style:  "purple",
+		Symbol: Symbols{"branch": "🌿", "worktree": "🌳"},
 	},
 	"cost": {
-		Template: "💰 ${{ printf \"%.2f\" .Cost.TotalCostUSD }} (+{{ .Cost.TotalLinesAdded }}/-{{ .Cost.TotalLinesRemoved }})",
+		Template: "{{ symbol }} ${{ printf \"%.2f\" .Cost.TotalCostUSD }} (+{{ .Cost.TotalLinesAdded }}/-{{ .Cost.TotalLinesRemoved }})",
 		When:     "{{ .Cost }} && {{ gt .Cost.TotalCostUSD 0.0 }}",
 		Style:    "green",
+		Symbol:   Symbols{"": "💰"},
 	},
 	"duration": {
 		Template: "{{ duration .Cost.TotalDurationMS }}",
@@ -140,9 +149,10 @@ var defaults = map[string]Segment{
 		Style:    "bold yellow",
 	},
 	"agent": {
-		Template: "\U0001F916 {{ .Agent.Name }}",
+		Template: "{{ symbol }} {{ .Agent.Name }}",
 		When:     "{{ .Agent }} && {{ .Agent.Name }}",
 		Style:    "bold magenta",
+		Symbol:   Symbols{"": "\U0001F916"},
 	},
 	"pr": {
 		Template: "PR #{{ .PR.Number }}{{ with .PR.ReviewState }} {{ . }}{{ end }}",
@@ -165,14 +175,16 @@ var defaults = map[string]Segment{
 		Style:    "dim",
 	},
 	"fast_mode": {
-		Template: "⚡ fast",
+		Template: "{{ symbol }} fast",
 		When:     "{{ .FastMode }}",
 		Style:    "bold yellow",
+		Symbol:   Symbols{"": "⚡"},
 	},
 	"exceeds_200k": {
-		Template: "⚠ 200k+",
+		Template: "{{ symbol }} 200k+",
 		When:     "{{ .Exceeds200K }}",
 		Style:    "bold red",
+		Symbol:   Symbols{"": "⚠"},
 	},
 	"text": {
 		// No default template: the user supplies one.

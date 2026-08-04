@@ -47,7 +47,7 @@ func renderSegment(in *input.Input, seg config.Segment, sty style.Renderer, opts
 	if !visible(in, seg, opts, idx) {
 		return "", false
 	}
-	body, err := execTemplate(fmt.Sprintf("seg%d", idx), seg.Template, in)
+	body, err := execTemplate(fmt.Sprintf("seg%d", idx), seg.Template, in, seg.Symbol)
 	if err != nil {
 		debugf(opts, "segment %d (%s) template error: %v", idx, seg.Type, err)
 		return "", false
@@ -93,7 +93,7 @@ func visible(in *input.Input, seg config.Segment, opts Options, idx int) bool {
 // first falsy (or failing) one, leaving the rest unevaluated.
 func allTruthy(in *input.Input, seg config.Segment, opts Options, idx int, conds []string) bool {
 	for _, cond := range conds {
-		out, err := execTemplate(fmt.Sprintf("seg%d-when", idx), cond, in)
+		out, err := execTemplate(fmt.Sprintf("seg%d-when", idx), cond, in, seg.Symbol)
 		if err != nil {
 			debugf(opts, "segment %d (%s) when error: %v", idx, seg.Type, err)
 			return false
@@ -130,9 +130,16 @@ func truthy(s string) bool {
 }
 
 // execTemplate compiles and runs a single template against the input. Missing
-// keys render as their zero value rather than erroring.
-func execTemplate(name, text string, in *input.Input) (string, error) {
-	tmpl, err := template.New(name).Funcs(funcMap).Option("missingkey=zero").Parse(text)
+// keys render as their zero value rather than erroring. The segment's symbols
+// are bound here rather than in funcMap because they differ per segment; "when"
+// gets the helper too, so a condition may reference {{ symbol }} without failing
+// to parse.
+func execTemplate(name, text string, in *input.Input, sym config.Symbols) (string, error) {
+	tmpl, err := template.New(name).
+		Funcs(funcMap).
+		Funcs(template.FuncMap{"symbol": symbolFunc(sym)}).
+		Option("missingkey=zero").
+		Parse(text)
 	if err != nil {
 		return "", err
 	}

@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -21,12 +22,44 @@ type Config struct {
 }
 
 // Segment is one piece of the status line. Type selects built-in defaults for
-// Template/When/Style; any field set here overrides the corresponding default.
+// Template/When/Style/Symbol; any field set here overrides the corresponding
+// default.
 type Segment struct {
-	Type     string `yaml:"type"`
-	Template string `yaml:"template"`
-	When     string `yaml:"when"`
-	Style    string `yaml:"style"`
+	Type     string  `yaml:"type"`
+	Template string  `yaml:"template"`
+	When     string  `yaml:"when"`
+	Style    string  `yaml:"style"`
+	Symbol   Symbols `yaml:"symbol"`
+}
+
+// Symbols holds a segment's overridable symbols, which its template reaches
+// through the "symbol" helper. Keeping the glyph out of the template text is
+// what lets a user swap 💰 for "$" without restating the whole template.
+type Symbols map[string]string
+
+// UnmarshalYAML accepts both shapes of the "symbol" field: a scalar for the
+// common one-symbol segment ("symbol: $"), stored under the unnamed key, and a
+// mapping for segments that pick between several ("symbol: {branch: …,
+// worktree: …}"). A null value leaves the map nil, i.e. unset, so the type's
+// defaults apply.
+func (s *Symbols) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		var str string
+		if err := value.Decode(&str); err != nil {
+			return err
+		}
+		*s = Symbols{"": str}
+		return nil
+	case yaml.MappingNode:
+		m := map[string]string{}
+		if err := value.Decode(&m); err != nil {
+			return err
+		}
+		*s = m
+		return nil
+	}
+	return fmt.Errorf("symbol: want a string or a mapping")
 }
 
 // Load resolves and reads the configuration. If path is empty it is discovered
@@ -93,7 +126,7 @@ func candidatePaths() []string {
 	return paths
 }
 
-// applyDefaults fills empty Template/When/Style on each segment from the
+// applyDefaults fills empty Template/When/Style/Symbol on each segment from the
 // registry entry for its Type.
 func (c *Config) applyDefaults() {
 	for i := range c.Segments {
@@ -111,5 +144,27 @@ func (c *Config) applyDefaults() {
 		if s.Style == "" {
 			s.Style = def.Style
 		}
+		s.Symbol = mergeSymbols(s.Symbol, def.Symbol)
 	}
+}
+
+// mergeSymbols fills the symbols a segment left unset from its type's defaults.
+// Named symbols merge key by key, so overriding one of the git glyphs keeps the
+// other; a scalar override (the unnamed key) replaces the whole set instead, so
+// "symbol: ⎇" on a multi-symbol type reads as "use this one symbol" rather than
+// adding a key nothing looks up. The defaults map is shared, so it is copied,
+// never written to.
+func mergeSymbols(dst, def Symbols) Symbols {
+	if len(def) == 0 {
+		return dst
+	}
+	if dst == nil {
+		return maps.Clone(def)
+	}
+	if _, scalar := dst[""]; scalar {
+		return dst
+	}
+	out := maps.Clone(def)
+	maps.Copy(out, dst)
+	return out
 }
