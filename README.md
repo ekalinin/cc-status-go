@@ -245,6 +245,7 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/�
 | `add nums…` | `{{ add .Foo .Bar .Baz }}` | integer sum (build a denominator inline) |
 | `pct part whole` | `{{ pct .Read (add .In .Create .Read) }}` | rounded percentage, `0` when `whole ≤ 0` |
 | `trunc n s` | `{{ trunc 20 .SessionName }}` | truncates with `…` |
+| `trimprefix p s` | `{{ trimprefix "." .Foo }}` | drops a leading `p`, leaves `s` alone without it |
 | `default fb v` | `{{ default "?" .Agent.Name }}` | fallback if empty |
 | `upper` / `lower` | `{{ upper .Vim.Mode }}` | case folding |
 
@@ -260,6 +261,8 @@ segment along with its separator:
     # the value is a plain string, so the usual helpers trim it; for the
     # folder name alone, /Users/me/.claude-tmp → .claude-tmp:
     # template: '{{ basename (env "CLAUDE_CONFIG_DIR") }}'
+    # and the same without the leading dot → claude-tmp:
+    # template: '{{ basename (env "CLAUDE_CONFIG_DIR") | trimprefix "." }}'
 ```
 
 ### Styling

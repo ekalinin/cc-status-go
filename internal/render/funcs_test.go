@@ -108,6 +108,35 @@ func TestPct(t *testing.T) {
 	}
 }
 
+func TestTrimprefix(t *testing.T) {
+	cases := []struct{ prefix, in, want string }{
+		{".", ".claude-tmp", "claude-tmp"},
+		{".", "claude-tmp", "claude-tmp"}, // no prefix present: untouched
+		{".", "", ""},
+		{"", ".claude-tmp", ".claude-tmp"},
+		{"..", ".claude-tmp", ".claude-tmp"}, // partial match is not a prefix
+	}
+	for _, tt := range cases {
+		if got := trimprefix(tt.prefix, tt.in); got != tt.want {
+			t.Errorf("trimprefix(%q, %q) = %q, want %q", tt.prefix, tt.in, got, tt.want)
+		}
+	}
+}
+
+// TestTrimprefixPipeline pins the argument order: the value comes last, so a
+// template can pipe into the helper the way it does with trunc and default.
+// Wiring strings.TrimPrefix in directly would reverse it and fail here.
+func TestTrimprefixPipeline(t *testing.T) {
+	const tmpl = `{{ basename "/Users/me/.claude-tmp" | trimprefix "." }}`
+	got, err := execTemplate("trim-test", tmpl, nil, nil)
+	if err != nil {
+		t.Fatalf("execTemplate(%s): %v", tmpl, err)
+	}
+	if got != "claude-tmp" {
+		t.Errorf("%s = %q, want %q", tmpl, got, "claude-tmp")
+	}
+}
+
 func TestTrunc(t *testing.T) {
 	if got := trunc(3, "hello"); got != "hel…" {
 		t.Errorf("trunc = %q, want %q", got, "hel…")
