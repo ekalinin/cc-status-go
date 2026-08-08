@@ -22,10 +22,12 @@ var funcMap = template.FuncMap{
 	"humantokens": humantokens,
 	"default":     defaultVal,
 	"trunc":       trunc,
+	"trimprefix":  trimprefix,
 	"upper":       strings.ToUpper,
 	"lower":       strings.ToLower,
 	"add":         add,
 	"pct":         pct,
+	"env":         os.Getenv,
 }
 
 // symbolFunc binds one segment's symbols to the "symbol" helper, which is why
@@ -246,6 +248,13 @@ func pct(part, whole int) int {
 		return 0
 	}
 	return int(float64(part)/float64(whole)*100 + 0.5)
+}
+
+// trimprefix drops prefix from the front of s, leaving s alone when it does not
+// start with prefix. The value comes last so templates can pipe into it, as with
+// trunc and default; this is why strings.TrimPrefix is not used directly.
+func trimprefix(prefix, s string) string {
+	return strings.TrimPrefix(s, prefix)
 }
 
 // trunc shortens s to at most n runes, appending "…" when cut.
