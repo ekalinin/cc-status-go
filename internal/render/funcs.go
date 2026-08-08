@@ -26,6 +26,7 @@ var funcMap = template.FuncMap{
 	"lower":       strings.ToLower,
 	"add":         add,
 	"pct":         pct,
+	"env":         os.Getenv,
 }
 
 // symbolFunc binds one segment's symbols to the "symbol" helper, which is why

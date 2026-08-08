@@ -237,6 +237,7 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/â€
 | `basename path` | `{{ basename .Workspace.CurrentDir }}` | final component, e.g. `cc-status-go` (cwd default) |
 | `shortpath path n` | `{{ shortpath .Cwd 3 }}` | collapses `$HOME`â†’`~`, keeps last 3 parts |
 | `branch dir` | `{{ branch .Workspace.CurrentDir }}` | branch from `.git/HEAD`, empty outside a repo |
+| `env name` | `{{ env "CLAUDE_CONFIG_DIR" }}` | environment variable, empty when unset |
 | `symbol [name]` | `{{ symbol }}`, `{{ symbol "worktree" }}` | this segment's `symbol`, see [Symbols](#symbols) |
 | `duration ms` | `{{ duration .Cost.TotalDurationMS }}` | `45s`, `1m30s` |
 | `reltime unixSec` | `{{ reltime .RateLimits.FiveHour.ResetsAt }}` | `13m`, `2h13m`, `3d4h`, `now` |
@@ -246,6 +247,20 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/â€
 | `trunc n s` | `{{ trunc 20 .SessionName }}` | truncates with `â€¦` |
 | `default fb v` | `{{ default "?" .Agent.Name }}` | fallback if empty |
 | `upper` / `lower` | `{{ upper .Vim.Mode }}` | case folding |
+
+`env` reads the environment the status line inherits from Claude Code, so a variable set
+only in your shell shows up only when `claude` was launched from that shell. Pair it with a
+`text` segment and no `when` is needed - an unset variable renders empty, which drops the
+segment along with its separator:
+
+```yaml
+  - type: text
+    template: '{{ env "CLAUDE_CONFIG_DIR" }}'
+    style: dim
+    # the value is a plain string, so the usual helpers trim it; for the
+    # folder name alone, /Users/me/.claude-tmp â†’ .claude-tmp:
+    # template: '{{ basename (env "CLAUDE_CONFIG_DIR") }}'
+```
 
 ### Styling
 

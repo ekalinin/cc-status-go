@@ -117,6 +117,27 @@ func TestTrunc(t *testing.T) {
 	}
 }
 
+// TestEnv goes through execTemplate rather than calling the helper directly:
+// what matters is that "env" is reachable from a segment template, since the
+// session JSON carries nothing about the process environment.
+func TestEnv(t *testing.T) {
+	t.Setenv("CC_STATUS_TEST_VAR", "/tmp/claude")
+	cases := map[string]string{
+		`{{ env "CC_STATUS_TEST_VAR" }}`:  "/tmp/claude",
+		`{{ env "CC_STATUS_UNSET_VAR" }}`: "", // unset: drops the segment on its own
+		`{{ env "" }}`:                    "",
+	}
+	for tmpl, want := range cases {
+		got, err := execTemplate("env-test", tmpl, nil, nil)
+		if err != nil {
+			t.Fatalf("execTemplate(%s): %v", tmpl, err)
+		}
+		if got != want {
+			t.Errorf("%s = %q, want %q", tmpl, got, want)
+		}
+	}
+}
+
 // writeFile creates path with the given contents, making parent directories.
 func writeFile(t *testing.T, path, contents string) {
 	t.Helper()
