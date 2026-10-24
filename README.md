@@ -134,6 +134,8 @@ relevant ones show. The default output and example for each type:
 | `pr_full` | pull request number, labelled, with its review state | `PR #1234 pending` |
 | `worktree` | Claude Code worktree name | `fix-login` |
 | `session` | session name | `my-session` |
+| `sessions` | Claude Code sessions running in parallel, only when more than one | `4` |
+| `sessions_full` | the same, labelled, with how many are busy | `4 claude (3 busy)` |
 | `version` | Claude Code version | `v1.2.3` |
 | `fast_mode` | badge shown when fast mode is on | `⚡ fast` |
 | `exceeds_200k` | badge shown when the last response exceeds 200k tokens | `⚠ 200k+` |
@@ -145,13 +147,13 @@ data is present. Override any type's `template`, `when`, `style`, or `symbol` in
 `--print-config` dumps the full set of defaults.
 
 Where the same data has a compact and a detailed rendering, the plain name is the compact
-one and the detailed one is `<type>_full`: `context`, `tokens`, `cache`, `pr`, `rate_limit`
-and `effort` all come in a pair. The short form prints the numbers alone, `_full` spells
-them out - the words (`ctx`, `in`/`out`, `cached`, `PR`), the review state for `pr`, each
-window's reset time for `rate_limit_full`. A status line is only a few columns wide, so the
-shorter form is the default and you opt into the longer one. The built-in config is the
-exception: it lists `context_full`, `pr_full` and `rate_limit_full`, since a first-run line
-should read without a legend.
+one and the detailed one is `<type>_full`: `context`, `tokens`, `cache`, `pr`, `rate_limit`,
+`effort` and `sessions` all come in a pair. The short form prints the numbers alone, `_full`
+spells them out - the words (`ctx`, `in`/`out`, `cached`, `PR`, `claude`), the review state
+for `pr`, each window's reset time for `rate_limit_full`, the busy count for `sessions_full`.
+A status line is only a few columns wide, so the shorter form is the default and you opt into
+the longer one. The built-in config is the exception: it lists `context_full`, `pr_full`,
+`rate_limit_full` and `sessions_full`, since a first-run line should read without a legend.
 
 #### Symbols
 
@@ -205,9 +207,19 @@ Both glyphs are configurable — `symbol: {branch: "⎇", worktree: "🌲"}`, se
 
 Claude Code sends no field for the current branch: `workspace.git_worktree` is a worktree
 *name* and is absent in the main working tree, and `worktree.branch` only appears in
-`--worktree` sessions. So the last case reads `.git/HEAD` directly — the one place this
-tool touches the filesystem. It never shells out to `git`, which would cost milliseconds
-on every render; reading the file takes microseconds.
+`--worktree` sessions. So the last case reads `.git/HEAD` directly — one of the two places
+this tool touches the filesystem (the other is [`sessions`](#the-sessions-segment)). It never
+shells out to `git`, which would cost milliseconds on every render; reading the file takes
+microseconds.
+
+#### The `sessions` segment
+
+The session JSON describes only the current session, so the count comes from the registry
+Claude Code keeps for its running processes: one `sessions/<pid>.json` per process in its
+config directory (`$CLAUDE_CONFIG_DIR`, or `~/.claude` when unset), carrying the pid and a
+`busy`/`idle` status. A file counts only while its process is alive, so one left behind by
+a crashed session is ignored. Both `sessions` and `sessions_full` hide while the current
+session is the only one running.
 
 ### Templates
 
@@ -237,6 +249,7 @@ Built-in helpers, on top of the standard `printf`/`eq`/`gt`/`and`/`or`/`with`/�
 | `basename path` | `{{ basename .Workspace.CurrentDir }}` | final component, e.g. `cc-status-go` (cwd default) |
 | `shortpath path n` | `{{ shortpath .Cwd 3 }}` | collapses `$HOME`→`~`, keeps last 3 parts |
 | `branch dir` | `{{ branch .Workspace.CurrentDir }}` | branch from `.git/HEAD`, empty outside a repo |
+| `sessions [status]` | `{{ sessions }}`, `{{ sessions "busy" }}` | live Claude Code sessions, optionally only those in `status` |
 | `env name` | `{{ env "CLAUDE_CONFIG_DIR" }}` | environment variable, empty when unset |
 | `symbol [name]` | `{{ symbol }}`, `{{ symbol "worktree" }}` | this segment's `symbol`, see [Symbols](#symbols) |
 | `duration ms` | `{{ duration .Cost.TotalDurationMS }}` | `45s`, `1m30s` |

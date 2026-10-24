@@ -1,6 +1,7 @@
 package render
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ var funcMap = template.FuncMap{
 	"shortpath":   shortpath,
 	"basename":    basename,
 	"branch":      branch,
+	"sessions":    sessions,
 	"duration":    duration,
 	"reltime":     reltime,
 	"humantokens": humantokens,
@@ -156,6 +158,57 @@ func resolveGitFile(worktree, dotGit string) string {
 		return target
 	}
 	return filepath.Join(worktree, target)
+}
+
+// sessions counts the Claude Code sessions running on this machine, or only
+// those in a given status: {{ sessions }} for all of them, {{ sessions "busy" }}
+// for the ones working right now. The session JSON describes the current
+// session alone, so the count comes from the registry Claude Code keeps in its
+// config directory ($CLAUDE_CONFIG_DIR, or ~/.claude): sessions/<pid>.json per
+// running process, carrying its pid and its status ("busy" or "idle").
+//
+// A record counts only while its process is alive, since a session that crashed
+// leaves its file behind. Every failure (no directory, an unreadable or
+// malformed file) counts as no session, which simply drops the segment.
+func sessions(status ...string) int {
+	dir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return 0
+		}
+		dir = filepath.Join(home, ".claude")
+	}
+	dir = filepath.Join(dir, "sessions")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		// Skip the <pid>.<hash>.key files that sit next to the records.
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var rec struct {
+			PID    int    `json:"pid"`
+			Status string `json:"status"`
+		}
+		// A non-positive pid would make the liveness check address a process
+		// group (or every process) instead of one process.
+		if json.Unmarshal(data, &rec) != nil || rec.PID <= 0 || !alive(rec.PID) {
+			continue
+		}
+		if len(status) > 0 && rec.Status != status[0] {
+			continue
+		}
+		n++
+	}
+	return n
 }
 
 // duration formats a millisecond count as a compact human string (e.g. 45s,

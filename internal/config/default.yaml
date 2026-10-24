@@ -20,3 +20,4 @@ segments:
   - type: vim
   - type: agent
   - type: pr_full
+  - type: sessions_full
