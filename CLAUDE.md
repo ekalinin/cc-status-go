@@ -56,10 +56,12 @@ line to stdout. Each stage lives in its own `internal/` package.
   non-empty output; absent-data segments (and their separators) drop out automatically.
   Templates are `text/template` with `Option("missingkey=zero")`. A failing segment is
   **skipped, never fatal** (reported to stderr only under `--debug`). `funcs.go` defines
-  the custom template helpers (`basename`, `shortpath`, `branch`, `duration`, `reltime`,
-  `humantokens`, `trunc`, `default`, `upper`/`lower`). `branch` is the one helper that
-  touches the filesystem: the session JSON has no current-branch field, so it reads
-  `.git/HEAD` (never shelling out to `git`, which would cost milliseconds per render).
+  the custom template helpers (`basename`, `shortpath`, `branch`, `sessions`, `duration`,
+  `reltime`, `humantokens`, `trunc`, `default`, `upper`/`lower`). `branch` and `sessions`
+  are the helpers that touch the filesystem: the session JSON has no current-branch field,
+  so `branch` reads `.git/HEAD` (never shelling out to `git`, which would cost milliseconds
+  per render), and it describes only the current session, so `sessions` counts the live
+  `<config dir>/sessions/<pid>.json` records Claude Code keeps per running process.
 
 - **`internal/style`** - parses style strings (`"bold cyan"`, `"fg:#ff8800 bg:240"`) into
   ANSI SGR codes. Disabled by `NO_COLOR` env, `--no-color`, or `no_color: true` in config;
@@ -90,9 +92,9 @@ optional (pointer) section.
   case, or the symbol survives as the whole segment - see `rate_limit`.
 - **Short type by default, `_full` for the verbose variant.** When one kind of data has a
   compact and a detailed rendering, the bare name is the compact one and the detailed one
-  is `<type>_full`: `context`, `tokens`, `cache`, `pr`, `rate_limit`, `effort`. A status
-  line is a few columns wide, so the name a user reaches for first should cost the fewest
-  of them. Concretely: the bare type renders the value alone (`8%`, `#1234`), and the words
+  is `<type>_full`: `context`, `tokens`, `cache`, `pr`, `rate_limit`, `effort`,
+  `sessions`. A status line is a few columns wide, so the name a user reaches for first
+  should cost the fewest of them. Concretely: the bare type renders the value alone (`8%`, `#1234`), and the words
   around it - a label (`ctx`, `cached`, `in`/`out`, `PR`) or an extra field (`pr`'s review
   state, `rate_limit_full`'s reset times) - belong to `_full`. A new numeric type that wants
   a label is really two entries.

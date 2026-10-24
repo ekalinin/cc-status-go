@@ -1,8 +1,10 @@
 package render
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -164,6 +166,69 @@ func TestEnv(t *testing.T) {
 		if got != want {
 			t.Errorf("%s = %q, want %q", tmpl, got, want)
 		}
+	}
+}
+
+// writeSessions points CLAUDE_CONFIG_DIR at a fresh directory and fills its
+// sessions/ with the given files, which the "sessions" helper then finds through
+// the environment.
+func writeSessions(t *testing.T, files map[string]string) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	for name, contents := range files {
+		writeFile(t, filepath.Join(dir, "sessions", name), contents)
+	}
+}
+
+func TestSessions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pid liveness is only checked on unix")
+	}
+	self, parent := os.Getpid(), os.Getppid()
+	writeSessions(t, map[string]string{
+		fmt.Sprintf("%d.json", self):   fmt.Sprintf(`{"pid":%d,"status":"busy"}`, self),
+		fmt.Sprintf("%d.json", parent): fmt.Sprintf(`{"pid":%d,"status":"idle"}`, parent),
+		// Left behind by a crashed session: no such process.
+		"1073741824.json": `{"pid":1073741824,"status":"busy"}`,
+		// Not a session record: wrong extension, broken JSON, no pid.
+		fmt.Sprintf("%d.abc.key", self): `{"peerToken":"x"}`,
+		"broken.json":                   `{not json`,
+		"nopid.json":                    `{"status":"busy"}`,
+	})
+	cases := map[string]string{
+		`{{ sessions }}`:               "2",
+		`{{ sessions "busy" }}`:        "1",
+		`{{ sessions "idle" }}`:        "1",
+		`{{ sessions "nope" }}`:        "0",
+		`{{ gt sessions 1 }}`:          "true",
+		`{{ gt (sessions "busy") 1 }}`: "false",
+	}
+	for tmpl, want := range cases {
+		got, err := execTemplate("sessions-test", tmpl, nil, nil)
+		if err != nil {
+			t.Fatalf("execTemplate(%s): %v", tmpl, err)
+		}
+		if got != want {
+			t.Errorf("%s = %q, want %q", tmpl, got, want)
+		}
+	}
+}
+
+// TestSessionsDefaultDir checks the fallback to ~/.claude when
+// CLAUDE_CONFIG_DIR is unset, and that a missing directory counts as zero.
+func TestSessionsDefaultDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	if got := sessions(); got != 0 {
+		t.Errorf("sessions() without a sessions dir = %d, want 0", got)
+	}
+	self := os.Getpid()
+	writeFile(t, filepath.Join(home, ".claude", "sessions", fmt.Sprintf("%d.json", self)),
+		fmt.Sprintf(`{"pid":%d,"status":"busy"}`, self))
+	if got := sessions(); got != 1 {
+		t.Errorf("sessions() from ~/.claude = %d, want 1", got)
 	}
 }
 

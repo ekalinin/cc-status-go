@@ -206,6 +206,20 @@ var defaults = map[string]Segment{
 		When:     "{{ .SessionName }}",
 		Style:    "dim",
 	},
+	"sessions": {
+		// How many Claude Code sessions run in parallel on this machine, the
+		// current one included. Hidden while it is the only one; use
+		// sessions_full for a label and the number of busy ones.
+		Template: "{{ symbol }} {{ sessions }}",
+		When:     "{{ gt sessions 1 }}",
+		Style:    "dim",
+	},
+	"sessions_full": {
+		// Like sessions, but labelled and with how many are working right now.
+		Template: "{{ symbol }} {{ sessions }} claude ({{ sessions \"busy\" }} busy)",
+		When:     "{{ gt sessions 1 }}",
+		Style:    "dim",
+	},
 	"version": {
 		Template: "{{ symbol }} v{{ .Version }}",
 		When:     "{{ .Version }}",

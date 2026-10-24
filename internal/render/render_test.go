@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,6 +213,32 @@ func TestShortAndFullSegments(t *testing.T) {
 		if got != c.want {
 			t.Errorf("segments %q on %s => %q, want %q", c.segments, c.payload, got, c.want)
 		}
+	}
+}
+
+// TestSessionsSegments checks the bare and labelled session counts, and that
+// both hide while the current session is the only one running.
+func TestSessionsSegments(t *testing.T) {
+	cfg, err := config.Load(writeTempConfig(t, "separator: \" | \"\nsegments:\n  - type: sessions\n  - type: sessions_full\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	self, parent := os.Getpid(), os.Getppid()
+	writeSessions(t, map[string]string{
+		"self.json": fmt.Sprintf(`{"pid":%d,"status":"busy"}`, self),
+	})
+	in, _ := input.Parse([]byte(`{}`))
+	if got := Render(in, cfg, style.Renderer{Disabled: true}, Options{}); got != "" {
+		t.Errorf("one session => %q, want %q", got, "")
+	}
+
+	writeSessions(t, map[string]string{
+		"self.json":   fmt.Sprintf(`{"pid":%d,"status":"busy"}`, self),
+		"parent.json": fmt.Sprintf(`{"pid":%d,"status":"idle"}`, parent),
+	})
+	want := "2 | 2 claude (1 busy)"
+	if got := Render(in, cfg, style.Renderer{Disabled: true}, Options{}); got != want {
+		t.Errorf("two sessions => %q, want %q", got, want)
 	}
 }
 
